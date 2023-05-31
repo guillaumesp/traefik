@@ -1,0 +1,62 @@
+version: "3.3"
+
+services:
+  traefik:
+    image: "traefik:v2.10"
+    container_name: "traefik"
+    command:
+      #- "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencryptResolver.acme.tlschallenge=true"
+      #- "--certificatesresolvers.letsencryptResolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+      - "--certificatesresolvers.letsencryptResolver.acme.email=sponyguillaume@gmail.com"
+      - "--certificatesresolvers.letsencryptResolver.acme.storage=/letsencrypt/acme.json"
+      
+
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - "./letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    container_name: "nginx"
+    volumes:
+      - "./sites:/var/www/html"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.middlewares.uhaldia.headers.customrequestheaders.X-DIRECTORY=uhaldia"
+      - "traefik.http.middlewares.uhaldia.headers.customrequestheaders.X-PHP-VERSION=7.4"
+      - "traefik.http.routers.uhaldia.rule=Host(`uhaldia.localhost`)"
+      - "traefik.http.routers.uhaldia.entrypoints=web"
+      # - "traefik.http.routers.uhaldia.entrypoints=websecure"
+      # - "traefik.http.routers.uhaldia.tls.certresolver=letsencryptResolver"
+      - "traefik.http.routers.uhaldia.middlewares=uhaldia@docker"
+
+      - "traefik.http.middlewares.ateliermk.headers.customrequestheaders.X-DIRECTORY=ateliermk"
+      - "traefik.http.middlewares.ateliermk.headers.customrequestheaders.X-PHP-VERSION=8.1"
+      - "traefik.http.routers.ateliermk.rule=Host(`ateliermk.localhost`)"
+      - "traefik.http.routers.ateliermk.entrypoints=web"
+      # - "traefik.http.routers.uhaldia.entrypoints=websecure"
+      # - "traefik.http.routers.uhaldia.tls.certresolver=letsencryptResolver"
+      - "traefik.http.routers.ateliermk.middlewares=ateliermk@docker"
+
+  php8.1:
+    image: php:8.1-fpm-alpine
+    volumes:
+      - "./sites:/var/www/html"
+
+  php7.4:
+    image: php:7.4-fpm-alpine
+    volumes:
+      - "./sites:/var/www/html"
